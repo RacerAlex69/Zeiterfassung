@@ -193,12 +193,12 @@ export default function TimeTrackingApp() {
     <div style={{ padding: '1rem', maxWidth: '600px', margin: '0 auto' }}>
       <h2>Zeiterfassung ({authenticatedUser.email})</h2>
 
-      <label>Arbeitsbeginn:<br/><input type="time" value=$1 style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }}} /></label>
-      <label>Frühstücksbeginn:<br/><input type="time" value={breakStart} onChange={e => setBreakStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
-      <label>Frühstücksende:<br/><input type="time" value={breakEnd} onChange={e => setBreakEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
-      <label>Mittagspause Beginn:<br/><input type="time" value={lunchStart} onChange={e => setLunchStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
-      <label>Mittagspause Ende:<br/><input type="time" value={lunchEnd} onChange={e => setLunchEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
-      <label>Arbeitsende:<br/><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+      <label>Arbeitsbeginn:<br/><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
+      <label>Frühstücksbeginn:<br/><input type="time" value={breakStart} onChange={e => setBreakStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
+      <label>Frühstücksende:<br/><input type="time" value={breakEnd} onChange={e => setBreakEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
+      <label>Mittagspause Beginn:<br/><input type="time" value={lunchStart} onChange={e => setLunchStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
+      <label>Mittagspause Ende:<br/><input type="time" value={lunchEnd} onChange={e => setLunchEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
+      <label>Arbeitsende:<br/><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }} /></label>
 
       <button onClick={handleSave} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Speichern</button>
       <button onClick={exportCSV} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Monatsreport exportieren</button>
@@ -246,6 +246,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
