@@ -1,30 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
+import { createClient } from "@supabase/supabase-js";
 
-const users = [
-  { name: "Conny Förster", password: "conny123" },
-  { name: "Katrin Flumm", password: "katrin123" },
-  { name: "Lisa Möser", password: "lisa123" },
-  { name: "Lea Brößke", password: "lea123" },
-  { name: "Emma", password: "emma123" },
-  { name: "Felix", password: "felix123" },
-  { name: "Greta", password: "greta123" },
-  { name: "Henry", password: "henry123" },
-  { name: "Admin", password: "adminpass" }
-];
+const supabase = createClient(
+  "https://kjjcknzvskouaqxxixzg.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqamNrbnp2c2tvdWFxeHhpeHpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzNDIyMTEsImV4cCI6MjA2MDkxODIxMX0.WoNxXtafo2PjyVJluEyhxtRUnuq515AYYNbPWMVEOiU"
+);
 
 const DAILY_TARGET_MINUTES = 8 * 60;
 
 export default function TimeTrackingApp() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authenticatedUser, setAuthenticatedUser] = useState(null);
-  const [entries, setEntries] = useState(() => {
-    const saved = localStorage.getItem("time_entries");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [entries, setEntries] = useState([]);
   const [startTime, setStartTime] = useState("");
   const [breakStart, setBreakStart] = useState("");
   const [breakEnd, setBreakEnd] = useState("");
@@ -32,13 +23,31 @@ export default function TimeTrackingApp() {
   const [lunchEnd, setLunchEnd] = useState("");
   const [endTime, setEndTime] = useState("");
 
-  const handleLogin = () => {
-    const normalizedUsername = username.trim().toLowerCase();
-    const user = users.find(
-      u => u.name.toLowerCase() === normalizedUsername && u.password === password
-    );
-    if (user) setAuthenticatedUser(user);
-    else alert("Falscher Benutzername oder Passwort");
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setAuthenticatedUser(user);
+        fetchEntries(user);
+      }
+    });
+  }, []);
+
+  const fetchEntries = async (user) => {
+    const { data, error } = await supabase
+      .from("time_entries")
+      .select("*")
+      .eq("user_id", user.id);
+    if (!error) setEntries(data);
+  };
+
+  const handleLogin = async () => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    if (error) return alert("Login fehlgeschlagen: " + error.message);
+    setAuthenticatedUser(data.user);
+    fetchEntries(data.user);
   };
 
   const calculateDuration = (start, breakStart, breakEnd, lunchStart, lunchEnd, end) => {
@@ -57,15 +66,14 @@ export default function TimeTrackingApp() {
     return parts[0] * 60 + parts[1];
   };
 
-  const handleSave = () => {
-    if (!startTime || !endTime) {
-      alert("Bitte Start- und Endzeit angeben.");
-      return;
-    }
+  const handleSave = async () => {
+    if (!startTime || !endTime) return alert("Bitte Start- und Endzeit angeben.");
+
     const duration = calculateDuration(startTime, breakStart, breakEnd, lunchStart, lunchEnd, endTime);
-    const newEntry = {
-      user: authenticatedUser.name,
-      date: format(new Date(), "dd.MM.yyyy"),
+
+    const { data, error } = await supabase.from("time_entries").insert({
+      user_id: authenticatedUser.id,
+      date: format(new Date(), "yyyy-MM-dd"),
       startTime,
       breakStart,
       breakEnd,
@@ -73,10 +81,9 @@ export default function TimeTrackingApp() {
       lunchEnd,
       endTime,
       duration
-    };
-    const updatedEntries = [...entries, newEntry];
-    setEntries(updatedEntries);
-    localStorage.setItem("time_entries", JSON.stringify(updatedEntries));
+    });
+
+    if (!error) fetchEntries(authenticatedUser);
     setStartTime("");
     setBreakStart("");
     setBreakEnd("");
@@ -86,8 +93,10 @@ export default function TimeTrackingApp() {
   };
 
   const exportCSV = () => {
-    const csvHeader = "Name,Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
-    const csvRows = entries.map(e => `${e.user},${e.date},${e.startTime},${e.breakStart || ""},${e.breakEnd || ""},${e.lunchStart || ""},${e.lunchEnd || ""},${e.endTime},${e.duration}`).join("\n");
+    const csvHeader = "Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
+    const csvRows = entries.map(e =>
+      `${e.date},${e.startTime},${e.breakStart || ""},${e.breakEnd || ""},${e.lunchStart || ""},${e.lunchEnd || ""},${e.endTime},${e.duration}`
+    ).join("\n");
     const blob = new Blob([csvHeader + csvRows], { type: "text/csv" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -95,15 +104,13 @@ export default function TimeTrackingApp() {
     link.click();
   };
 
-  const userEntries = authenticatedUser?.name === "Admin" ? entries : entries.filter(e => e.user === authenticatedUser?.name);
-
-  const currentMonthEntries = userEntries.filter(e => {
-    const entryDate = parse(e.date, "dd.MM.yyyy", new Date());
+  const currentMonthEntries = entries.filter(e => {
+    const entryDate = parse(e.date, "yyyy-MM-dd", new Date());
     return isValid(entryDate) && isSameMonth(entryDate, new Date());
   });
 
-  const currentWeekEntries = userEntries.filter(e => {
-    const entryDate = parse(e.date, "dd.MM.yyyy", new Date());
+  const currentWeekEntries = entries.filter(e => {
+    const entryDate = parse(e.date, "yyyy-MM-dd", new Date());
     return isValid(entryDate) && isSameWeek(entryDate, new Date(), { weekStartsOn: 1 });
   });
 
@@ -115,17 +122,17 @@ export default function TimeTrackingApp() {
   const weeklyTotalMinutes = currentWeekEntries.reduce((sum, e) => sum + calculateMinutes(e.duration), 0);
   const weeklyTotalFormatted = `${Math.floor(weeklyTotalMinutes / 60)}h ${weeklyTotalMinutes % 60}min`;
 
-  const incompleteDays = userEntries.filter(e => !e.startTime || !e.endTime);
+  const incompleteDays = entries.filter(e => !e.startTime || !e.endTime);
 
   if (!authenticatedUser) {
     return (
       <div style={{ padding: '1rem', maxWidth: '400px', margin: '0 auto' }}>
         <h2>Login</h2>
         <input
-          type="text"
-          placeholder="Benutzername"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
+          type="email"
+          placeholder="E-Mail"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
         />
         <input
@@ -142,7 +149,7 @@ export default function TimeTrackingApp() {
 
   return (
     <div style={{ padding: '1rem', maxWidth: '600px', margin: '0 auto' }}>
-      <h2>Zeiterfassung ({authenticatedUser.name})</h2>
+      <h2>Zeiterfassung ({authenticatedUser.email})</h2>
 
       <label>Arbeitsbeginn:<br/><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
 
@@ -155,15 +162,12 @@ export default function TimeTrackingApp() {
       <label>Arbeitsende:<br/><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
 
       <button onClick={handleSave} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Speichern</button>
-
-      {authenticatedUser.name === "Admin" && (
-        <button onClick={exportCSV} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Monatsreport exportieren</button>
-      )}
+      <button onClick={exportCSV} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Monatsreport exportieren</button>
 
       <div style={{ marginTop: '1rem' }}>
         <h3>Zeiten</h3>
         <ul style={{ listStyle: 'none', padding: 0 }}>
-          {userEntries.map((entry, index) => (
+          {entries.map((entry, index) => (
             <li key={index} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '0.5rem', marginBottom: '0.5rem' }}>
               <strong>{entry.date}</strong>: {entry.startTime} - {entry.endTime} (Frühstück: {entry.breakStart || "-"}-{entry.breakEnd || "-"}, Mittag: {entry.lunchStart || "-"}-{entry.lunchEnd || "-"}) → <strong>{entry.duration}</strong>
             </li>
