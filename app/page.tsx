@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, User } from "@supabase/supabase-js";
 
 const supabase = createClient(
   "https://kjjcknzvskouaqxxixzg.supabase.co",
@@ -14,8 +14,8 @@ const DAILY_TARGET_MINUTES = 8 * 60;
 export default function TimeTrackingApp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authenticatedUser, setAuthenticatedUser] = useState(null);
-  const [entries, setEntries] = useState([]);
+  const [authenticatedUser, setAuthenticatedUser] = useState<User | null>(null);
+  const [entries, setEntries] = useState<any[]>([]);
   const [startTime, setStartTime] = useState("");
   const [breakStart, setBreakStart] = useState("");
   const [breakEnd, setBreakEnd] = useState("");
@@ -32,7 +32,7 @@ export default function TimeTrackingApp() {
     });
   }, []);
 
-  const fetchEntries = async (user) => {
+  const fetchEntries = async (user: User) => {
     const { data, error } = await supabase
       .from("time_entries")
       .select("*")
@@ -50,16 +50,23 @@ export default function TimeTrackingApp() {
     fetchEntries(data.user);
   };
 
-  const calculateDuration = (start, breakStart, breakEnd, lunchStart, lunchEnd, end) => {
-    const parseTime = (t) => parse(t, "HH:mm", new Date());
-    const total = (parseTime(end) - parseTime(start)) / 60000;
-    const breakfast = (breakStart && breakEnd) ? (parseTime(breakEnd) - parseTime(breakStart)) / 60000 : 0;
-    const lunch = (lunchStart && lunchEnd) ? (parseTime(lunchEnd) - parseTime(lunchStart)) / 60000 : 0;
+  const calculateDuration = (
+    start: string,
+    breakStart: string,
+    breakEnd: string,
+    lunchStart: string,
+    lunchEnd: string,
+    end: string
+  ) => {
+    const parseTime = (t: string) => parse(t, "HH:mm", new Date());
+    const total = (parseTime(end).getTime() - parseTime(start).getTime()) / 60000;
+    const breakfast = breakStart && breakEnd ? (parseTime(breakEnd).getTime() - parseTime(breakStart).getTime()) / 60000 : 0;
+    const lunch = lunchStart && lunchEnd ? (parseTime(lunchEnd).getTime() - parseTime(lunchStart).getTime()) / 60000 : 0;
     const duration = total - breakfast - lunch;
     return `${Math.floor(duration / 60)}h ${duration % 60}min`;
   };
 
-  const calculateMinutes = (durationStr) => {
+  const calculateMinutes = (durationStr: string) => {
     if (!durationStr || typeof durationStr !== "string" || !durationStr.includes("h")) return 0;
     const parts = durationStr.split(/[h\s]+/).map(Number);
     if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
@@ -72,7 +79,7 @@ export default function TimeTrackingApp() {
     const duration = calculateDuration(startTime, breakStart, breakEnd, lunchStart, lunchEnd, endTime);
 
     const { data, error } = await supabase.from("time_entries").insert({
-      user_id: authenticatedUser.id,
+      user_id: authenticatedUser!.id,
       date: format(new Date(), "yyyy-MM-dd"),
       startTime,
       breakStart,
@@ -83,7 +90,7 @@ export default function TimeTrackingApp() {
       duration
     });
 
-    if (!error) fetchEntries(authenticatedUser);
+    if (!error) fetchEntries(authenticatedUser!);
     setStartTime("");
     setBreakStart("");
     setBreakEnd("");
@@ -192,4 +199,5 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
