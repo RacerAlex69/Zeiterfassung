@@ -1,0 +1,190 @@
+"use client";
+
+import { useState } from "react";
+import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
+
+const users = [
+  { name: "Conny Förster", password: "conny123" },
+  { name: "Katrin Flumm", password: "katrin123" },
+  { name: "Lisa Möser", password: "lisa123" },
+  { name: "Lea Brößke", password: "lea123" },
+  { name: "Emma", password: "emma123" },
+  { name: "Felix", password: "felix123" },
+  { name: "Greta", password: "greta123" },
+  { name: "Henry", password: "henry123" },
+  { name: "Admin", password: "adminpass" }
+];
+
+const DAILY_TARGET_MINUTES = 8 * 60;
+
+export default function TimeTrackingApp() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [authenticatedUser, setAuthenticatedUser] = useState(null);
+  const [entries, setEntries] = useState(() => {
+    const saved = localStorage.getItem("time_entries");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [startTime, setStartTime] = useState("");
+  const [breakStart, setBreakStart] = useState("");
+  const [breakEnd, setBreakEnd] = useState("");
+  const [lunchStart, setLunchStart] = useState("");
+  const [lunchEnd, setLunchEnd] = useState("");
+  const [endTime, setEndTime] = useState("");
+
+  const handleLogin = () => {
+    const normalizedUsername = username.trim().toLowerCase();
+    const user = users.find(
+      u => u.name.toLowerCase() === normalizedUsername && u.password === password
+    );
+    if (user) setAuthenticatedUser(user);
+    else alert("Falscher Benutzername oder Passwort");
+  };
+
+  const calculateDuration = (start, breakStart, breakEnd, lunchStart, lunchEnd, end) => {
+    const parseTime = (t) => parse(t, "HH:mm", new Date());
+    const total = (parseTime(end) - parseTime(start)) / 60000;
+    const breakfast = (breakStart && breakEnd) ? (parseTime(breakEnd) - parseTime(breakStart)) / 60000 : 0;
+    const lunch = (lunchStart && lunchEnd) ? (parseTime(lunchEnd) - parseTime(lunchStart)) / 60000 : 0;
+    const duration = total - breakfast - lunch;
+    return `${Math.floor(duration / 60)}h ${duration % 60}min`;
+  };
+
+  const calculateMinutes = (durationStr) => {
+    if (!durationStr || typeof durationStr !== "string" || !durationStr.includes("h")) return 0;
+    const parts = durationStr.split(/[h\s]+/).map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
+    return parts[0] * 60 + parts[1];
+  };
+
+  const handleSave = () => {
+    if (!startTime || !endTime) {
+      alert("Bitte Start- und Endzeit angeben.");
+      return;
+    }
+    const duration = calculateDuration(startTime, breakStart, breakEnd, lunchStart, lunchEnd, endTime);
+    const newEntry = {
+      user: authenticatedUser.name,
+      date: format(new Date(), "dd.MM.yyyy"),
+      startTime,
+      breakStart,
+      breakEnd,
+      lunchStart,
+      lunchEnd,
+      endTime,
+      duration
+    };
+    const updatedEntries = [...entries, newEntry];
+    setEntries(updatedEntries);
+    localStorage.setItem("time_entries", JSON.stringify(updatedEntries));
+    setStartTime("");
+    setBreakStart("");
+    setBreakEnd("");
+    setLunchStart("");
+    setLunchEnd("");
+    setEndTime("");
+  };
+
+  const exportCSV = () => {
+    const csvHeader = "Name,Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
+    const csvRows = entries.map(e => `${e.user},${e.date},${e.startTime},${e.breakStart || ""},${e.breakEnd || ""},${e.lunchStart || ""},${e.lunchEnd || ""},${e.endTime},${e.duration}`).join("\n");
+    const blob = new Blob([csvHeader + csvRows], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Monatsreport_${format(new Date(), "yyyy_MM")}.csv`;
+    link.click();
+  };
+
+  const userEntries = authenticatedUser?.name === "Admin" ? entries : entries.filter(e => e.user === authenticatedUser?.name);
+
+  const currentMonthEntries = userEntries.filter(e => {
+    const entryDate = parse(e.date, "dd.MM.yyyy", new Date());
+    return isValid(entryDate) && isSameMonth(entryDate, new Date());
+  });
+
+  const currentWeekEntries = userEntries.filter(e => {
+    const entryDate = parse(e.date, "dd.MM.yyyy", new Date());
+    return isValid(entryDate) && isSameWeek(entryDate, new Date(), { weekStartsOn: 1 });
+  });
+
+  const monthlyTotalMinutes = currentMonthEntries.reduce((sum, e) => sum + calculateMinutes(e.duration), 0);
+  const monthlyTotalFormatted = `${Math.floor(monthlyTotalMinutes / 60)}h ${monthlyTotalMinutes % 60}min`;
+  const monthlyTarget = DAILY_TARGET_MINUTES * currentMonthEntries.length;
+  const monthlyDiff = monthlyTotalMinutes - monthlyTarget;
+
+  const weeklyTotalMinutes = currentWeekEntries.reduce((sum, e) => sum + calculateMinutes(e.duration), 0);
+  const weeklyTotalFormatted = `${Math.floor(weeklyTotalMinutes / 60)}h ${weeklyTotalMinutes % 60}min`;
+
+  const incompleteDays = userEntries.filter(e => !e.startTime || !e.endTime);
+
+  if (!authenticatedUser) {
+    return (
+      <div style={{ padding: '1rem', maxWidth: '400px', margin: '0 auto' }}>
+        <h2>Login</h2>
+        <input
+          type="text"
+          placeholder="Benutzername"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+          style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
+        />
+        <input
+          type="password"
+          placeholder="Passwort"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
+        />
+        <button onClick={handleLogin} style={{ padding: '0.5rem 1rem' }}>Login</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: '1rem', maxWidth: '600px', margin: '0 auto' }}>
+      <h2>Zeiterfassung ({authenticatedUser.name})</h2>
+
+      <label>Arbeitsbeginn:<br/><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+
+      <label>Frühstücksbeginn:<br/><input type="time" value={breakStart} onChange={e => setBreakStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+      <label>Frühstücksende:<br/><input type="time" value={breakEnd} onChange={e => setBreakEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+
+      <label>Mittagspause Beginn:<br/><input type="time" value={lunchStart} onChange={e => setLunchStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+      <label>Mittagspause Ende:<br/><input type="time" value={lunchEnd} onChange={e => setLunchEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+
+      <label>Arbeitsende:<br/><input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+
+      <button onClick={handleSave} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Speichern</button>
+
+      {authenticatedUser.name === "Admin" && (
+        <button onClick={exportCSV} style={{ padding: '0.5rem 1rem', marginBottom: '1rem' }}>Monatsreport exportieren</button>
+      )}
+
+      <div style={{ marginTop: '1rem' }}>
+        <h3>Zeiten</h3>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {userEntries.map((entry, index) => (
+            <li key={index} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '0.5rem', marginBottom: '0.5rem' }}>
+              <strong>{entry.date}</strong>: {entry.startTime} - {entry.endTime} (Frühstück: {entry.breakStart || "-"}-{entry.breakEnd || "-"}, Mittag: {entry.lunchStart || "-"}-{entry.lunchEnd || "-"}) → <strong>{entry.duration}</strong>
+            </li>
+          ))}
+        </ul>
+
+        <h3>Arbeitszeit im aktuellen Monat</h3>
+        <p><strong>{monthlyTotalFormatted}</strong> ({monthlyDiff >= 0 ? "+" : ""}{Math.floor(monthlyDiff / 60)}h {monthlyDiff % 60}min zum Soll)</p>
+
+        <h3>Arbeitszeit in dieser Woche</h3>
+        <p><strong>{weeklyTotalFormatted}</strong></p>
+
+        {incompleteDays.length > 0 && (
+          <div style={{ marginTop: '1rem', color: 'red' }}>
+            <h4>Unvollständige Einträge:</h4>
+            <ul>
+              {incompleteDays.map((e, idx) => <li key={idx}>{e.date}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
