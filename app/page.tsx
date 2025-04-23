@@ -9,6 +9,7 @@ const supabase = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqamNrbnp2c2tvdWFxeHhpeHpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUzNDIyMTEsImV4cCI6MjA2MDkxODIxMX0.WoNxXtafo2PjyVJluEyhxtRUnuq515AYYNbPWMVEOiU"
 );
 
+const ADMIN_EMAIL = "alex@reitsport.de"; // ← Hier kannst du deine Admin-Mail definieren
 const DAILY_TARGET_MINUTES = 8 * 60;
 
 export default function TimeTrackingApp() {
@@ -34,28 +35,21 @@ export default function TimeTrackingApp() {
   }, []);
 
   const fetchEntries = async (user: User) => {
-    const { data, error } = await supabase
-      .from("time_entries")
-      .select("*")
-      .eq("user_id", user.id);
+    const { data, error } = user.email === ADMIN_EMAIL
+      ? await supabase.from("time_entries").select("*")
+      : await supabase.from("time_entries").select("*").eq("user_id", user.id);
     if (!error) setEntries(data);
   };
 
   const handleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return alert("Login fehlgeschlagen: " + error.message);
     setAuthenticatedUser(data.user);
     fetchEntries(data.user);
   };
 
   const handleSignup = async () => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return alert("Registrierung fehlgeschlagen: " + error.message);
     alert("Benutzer erfolgreich erstellt. Bitte E-Mail bestätigen und einloggen.");
   };
@@ -220,6 +214,5 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
-
 
 
