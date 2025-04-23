@@ -33,11 +33,13 @@ export default function TimeTrackingApp() {
         setAuthenticatedUser(user);
         fetchEntries(user);
 
-        if (user.email === ADMIN_EMAIL) {
-          supabase.from("users").select("id,email").then(({ data }) => {
-            if (data) setAllUsers(data);
-          });
-        }
+        supabase.from("time_entries").select("user_id").then(async ({ data: userIds }) => {
+          if (userIds) {
+            const uniqueUserIds = Array.from(new Set(userIds.map((e) => e.user_id)));
+            const { data: usersData } = await supabase.from("users").select("id,email").in("id", uniqueUserIds);
+            if (usersData) setAllUsers(usersData);
+          }
+        });
       }
     });
   }, []);
@@ -191,7 +193,7 @@ export default function TimeTrackingApp() {
     <div style={{ padding: '1rem', maxWidth: '600px', margin: '0 auto' }}>
       <h2>Zeiterfassung ({authenticatedUser.email})</h2>
 
-      <label>Arbeitsbeginn:<br/><input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
+      <label>Arbeitsbeginn:<br/><input type="time" value=$1 style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }}} /></label>
       <label>Frühstücksbeginn:<br/><input type="time" value={breakStart} onChange={e => setBreakStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
       <label>Frühstücksende:<br/><input type="time" value={breakEnd} onChange={e => setBreakEnd(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
       <label>Mittagspause Beginn:<br/><input type="time" value={lunchStart} onChange={e => setLunchStart(e.target.value)} style={{ display: 'block', marginBottom: '0.5rem' }} /></label>
