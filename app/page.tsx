@@ -22,6 +22,7 @@ export default function TimeTrackingApp() {
   const [lunchStart, setLunchStart] = useState("");
   const [lunchEnd, setLunchEnd] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [isLoginMode, setIsLoginMode] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -48,6 +49,15 @@ export default function TimeTrackingApp() {
     if (error) return alert("Login fehlgeschlagen: " + error.message);
     setAuthenticatedUser(data.user);
     fetchEntries(data.user);
+  };
+
+  const handleSignup = async () => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+    if (error) return alert("Registrierung fehlgeschlagen: " + error.message);
+    alert("Benutzer erfolgreich erstellt. Bitte E-Mail bestätigen und einloggen.");
   };
 
   const calculateDuration = (
@@ -134,7 +144,7 @@ export default function TimeTrackingApp() {
   if (!authenticatedUser) {
     return (
       <div style={{ padding: '1rem', maxWidth: '400px', margin: '0 auto' }}>
-        <h2>Login</h2>
+        <h2>{isLoginMode ? "Login" : "Registrieren"}</h2>
         <input
           type="email"
           placeholder="E-Mail"
@@ -149,7 +159,18 @@ export default function TimeTrackingApp() {
           onChange={e => setPassword(e.target.value)}
           style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
         />
-        <button onClick={handleLogin} style={{ padding: '0.5rem 1rem' }}>Login</button>
+        <button
+          onClick={isLoginMode ? handleLogin : handleSignup}
+          style={{ padding: '0.5rem 1rem', marginRight: '0.5rem' }}
+        >
+          {isLoginMode ? "Login" : "Registrieren"}
+        </button>
+        <button
+          onClick={() => setIsLoginMode(!isLoginMode)}
+          style={{ padding: '0.5rem 1rem' }}
+        >
+          {isLoginMode ? "Noch kein Konto?" : "Schon registriert?"}
+        </button>
       </div>
     );
   }
@@ -199,5 +220,6 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
