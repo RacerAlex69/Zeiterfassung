@@ -32,7 +32,16 @@ export default function TimeTrackingApp() {
         supabase.from("time_entries").select("user_id").then(async ({ data: userIds }) => {
           if (userIds) {
             const uniqueUserIds = Array.from(new Set(userIds.map((e) => e.user_id)));
-            const { data: usersData } = await supabase.from("users").select("id,email").in("id", uniqueUserIds);
+            const { data: usersData, error } = await supabase
+              .from("auth.users")
+              .select("id,email")
+              .in("id", uniqueUserIds);
+
+            if (error) {
+              console.error("Fehler beim Abrufen der Benutzerliste: ", error.message);
+              alert("⚠️ Fehler beim Laden der Benutzerliste. Bitte später erneut versuchen.");
+            }
+
             if (usersData) setAllUsers(usersData);
           }
         });
@@ -199,7 +208,7 @@ export default function TimeTrackingApp() {
         <h2>{isLoginMode ? "Login" : "Registrieren"}</h2>
         <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }} />
         <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }} />
-        <button onClick={isLoginMode ? handleLogin : handleSignup} style={{ padding: '0.5rem 1rem', marginRight: '0.5rem' }}>{isLoginMode ? "Login" : "Registrieren"}</button>
+        <button style={{ padding: '0.5rem 1rem', marginRight: '0.5rem' }}>Login</button>
         <button onClick={() => setIsLoginMode(!isLoginMode)} style={{ padding: '0.5rem 1rem' }}>{isLoginMode ? "Noch kein Konto?" : "Schon registriert?"}</button>
       </div>
     );
@@ -260,5 +269,6 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
