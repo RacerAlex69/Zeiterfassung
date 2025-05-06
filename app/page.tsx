@@ -23,6 +23,7 @@ interface TimeEntry {
   lunchStart?: string;
   lunchEnd?: string;
   duration?: string;
+  email?: string; // hinzugefügt für Anzeige im Adminbereich
 }
 
 export default function TimeTrackingApp() {
@@ -45,7 +46,7 @@ export default function TimeTrackingApp() {
 
   const fetchEntries = async (user: User) => {
     const { data, error } = user.email === ADMIN_EMAIL
-      ? await supabase.from("time_entries").select("*")
+      ? await supabase.from("time_entries").select("*, auth.users(email)")
       : await supabase.from("time_entries").select("*").eq("user_id", user.id);
     if (!error && data) setEntries(data);
   };
@@ -108,11 +109,8 @@ export default function TimeTrackingApp() {
     if (!authenticatedUser || !currentEntry) return;
 
     const updatedEntry = { ...currentEntry, [field]: value };
-
-    // Optimistisches Update im UI
     setCurrentEntry(updatedEntry);
 
-    // Dauer nur berechnen, wenn Start und Ende vorhanden sind
     if (updatedEntry.startTime && updatedEntry.endTime) {
       updatedEntry.duration = calculateDuration(
         updatedEntry.startTime || "",
@@ -133,6 +131,7 @@ export default function TimeTrackingApp() {
     if (!error && data && data.length > 0) {
       setCurrentEntry(data[0]);
       fetchEntries(authenticatedUser);
+      if (authenticatedUser.email === ADMIN_EMAIL) fetchAllUserSummaries();
     }
   };
 
@@ -167,8 +166,8 @@ export default function TimeTrackingApp() {
         style={{
           display: 'block',
           marginBottom: '0.5rem',
-          backgroundColor: '#fff',
-          color: '#000',
+          backgroundColor: '#f1f1f1',
+          color: '#111',
           border: '1px solid #ccc',
           borderRadius: '6px',
           padding: '0.4rem'
@@ -261,6 +260,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
