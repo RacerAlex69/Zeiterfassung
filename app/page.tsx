@@ -1,3 +1,4 @@
+//
 "use client";
 
 import { useEffect, useState } from "react";
@@ -32,7 +33,7 @@ export default function TimeTrackingApp() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [isLoginMode, setIsLoginMode] = useState(true);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<Partial<User>[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   useEffect(() => {
@@ -54,7 +55,11 @@ export default function TimeTrackingApp() {
         .from("auth.users")
         .select("id,email")
         .in("id", uniqueUserIds);
-      if (!error && usersData) setAllUsers(usersData);
+
+      if (!error && usersData) {
+        const typedUsers = usersData.map((u) => ({ id: u.id, email: u.email })) as Partial<User>[];
+        setAllUsers(typedUsers);
+      }
     }
   };
 
