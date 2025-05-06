@@ -1,4 +1,3 @@
-//
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,8 +5,8 @@ import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
 import { createClient, User } from "@supabase/supabase-js";
 
 const supabase = createClient(
-  "https://kjjcknzvskouaqxxixzg.supabase.co",
-  "YOUR_PUBLIC_ANON_KEY"
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 const ADMIN_EMAIL = "alex@reitsport.de";
@@ -96,12 +95,12 @@ export default function TimeTrackingApp() {
 
     if (updatedEntry.startTime && updatedEntry.endTime) {
       updatedEntry.duration = calculateDuration(
-        updatedEntry.startTime,
-        updatedEntry.breakStart,
-        updatedEntry.breakEnd,
-        updatedEntry.lunchStart,
-        updatedEntry.lunchEnd,
-        updatedEntry.endTime
+        updatedEntry.startTime || "",
+        updatedEntry.breakStart || "",
+        updatedEntry.breakEnd || "",
+        updatedEntry.lunchStart || "",
+        updatedEntry.lunchEnd || "",
+        updatedEntry.endTime || ""
       );
     }
 
@@ -172,6 +171,18 @@ export default function TimeTrackingApp() {
 
   const incompleteDays = entries.filter(e => !e.startTime || !e.endTime);
 
+  const renderTimeInput = (label: string, field: string, value?: string) => (
+    <label>
+      {label}:<br />
+      <input
+        type="time"
+        value={value || ""}
+        onChange={e => updateTimeField(field, e.target.value)}
+        style={{ display: 'block', marginBottom: '0.5rem', backgroundColor: '#fff', color: '#000' }}
+      />
+    </label>
+  );
+
   return (
     <div style={{ padding: '1rem', maxWidth: '600px', margin: '0 auto' }}>
       <h2>Zeiterfassung ({authenticatedUser?.email})</h2>
@@ -201,6 +212,8 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
+
 
 
 
