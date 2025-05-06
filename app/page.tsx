@@ -153,6 +153,26 @@ export default function TimeTrackingApp() {
     return parseInt(parts[1]) * 60 + parseInt(parts[2]);
   };
 
+  const renderTimeInput = (label: string, field: string, value?: string) => (
+    <label>
+      {label}:<br />
+      <input
+        type="time"
+        value={value || ""}
+        onChange={e => updateTimeField(field, e.target.value)}
+        style={{
+          display: 'block',
+          marginBottom: '0.5rem',
+          backgroundColor: '#fff',
+          color: '#000',
+          border: '1px solid #ccc',
+          borderRadius: '6px',
+          padding: '0.4rem'
+        }}
+      />
+    </label>
+  );
+
   const currentMonthEntries = entries.filter(e => {
     const entryDate = parse(e.date, "yyyy-MM-dd", new Date());
     return isValid(entryDate) && isSameMonth(entryDate, new Date());
@@ -237,6 +257,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
