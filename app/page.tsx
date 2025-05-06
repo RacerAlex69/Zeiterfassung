@@ -30,6 +30,7 @@ export default function TimeTrackingApp() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [allUserEntries, setAllUserEntries] = useState<{ user: string; total: string }[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
+  const [loadingEntry, setLoadingEntry] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -74,26 +75,38 @@ export default function TimeTrackingApp() {
   };
 
   const fetchOrCreateTodayEntry = async (user: User) => {
+    setLoadingEntry(true);
     const today = format(new Date(), "yyyy-MM-dd");
-    const { data: existingEntries } = await supabase
-      .from("time_entries")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("date", today);
-
-    if (existingEntries && existingEntries.length > 0) {
-      setCurrentEntry(existingEntries[0]);
-    } else {
-      const { data: newEntry } = await supabase
+    try {
+      const { data: existingEntries, error: selectError } = await supabase
         .from("time_entries")
-        .insert({ user_id: user.id, date: today })
-        .select();
-      if (newEntry && newEntry.length > 0) setCurrentEntry(newEntry[0]);
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", today);
+
+      if (selectError) console.error("Fehler beim Laden des Eintrags:", selectError);
+
+      if (existingEntries && existingEntries.length > 0) {
+        setCurrentEntry(existingEntries[0]);
+      } else {
+        const { data: newEntry, error: insertError } = await supabase
+          .from("time_entries")
+          .insert({ user_id: user.id, date: today })
+          .select();
+
+        if (insertError) console.error("Fehler beim Erstellen des Eintrags:", insertError);
+        if (newEntry && newEntry.length > 0) setCurrentEntry(newEntry[0]);
+      }
+    } catch (e) {
+      console.error("Unerwarteter Fehler bei fetchOrCreateTodayEntry:", e);
+    } finally {
+      setLoadingEntry(false);
     }
   };
 
   const updateTimeField = async (field: string, value: string) => {
     if (!authenticatedUser || !currentEntry) return;
+
     const updatedEntry = { ...currentEntry, [field]: value };
 
     if (updatedEntry.startTime && updatedEntry.endTime) {
@@ -160,21 +173,6 @@ export default function TimeTrackingApp() {
 
   const incompleteDays = entries.filter(e => !e.startTime || !e.endTime);
 
-  const renderTimeInput = (label: string, field: string, value?: string) => (
-    <label>
-      {label}:<br />
-      <input
-        type="time"
-        value={value || ""}
-        onChange={e => updateTimeField(field, e.target.value)}
-        style={{ 
-          display: 'block', marginBottom: '0.5rem', backgroundColor: '#f5f5f5', 
-          color: '#222', border: '1px solid #ccc', padding: '0.4rem', borderRadius: '6px'
-        }}
-      />
-    </label>
-  );
-
   const exportCSV = () => {
     const csvHeader = "Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
     const csvRows = entries.map(e =>
@@ -239,6 +237,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
