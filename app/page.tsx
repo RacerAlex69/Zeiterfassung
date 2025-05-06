@@ -109,6 +109,9 @@ export default function TimeTrackingApp() {
 
     const updatedEntry = { ...currentEntry, [field]: value };
 
+    // Optimistisches Update im UI
+    setCurrentEntry(updatedEntry);
+
     // Dauer nur berechnen, wenn Start und Ende vorhanden sind
     if (updatedEntry.startTime && updatedEntry.endTime) {
       updatedEntry.duration = calculateDuration(
@@ -258,6 +261,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
