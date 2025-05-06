@@ -1,4 +1,3 @@
-//
 "use client";
 
 import { useEffect, useState } from "react";
@@ -24,7 +23,7 @@ interface TimeEntry {
   lunchStart?: string;
   lunchEnd?: string;
   duration?: string;
-  email?: string; // hinzugefügt für Anzeige im Adminbereich
+  email?: string;
 }
 
 export default function TimeTrackingApp() {
@@ -46,15 +45,14 @@ export default function TimeTrackingApp() {
   }, []);
 
   const fetchEntries = async (user: User) => {
-    const { data, error } = user.email === ADMIN_EMAIL
-      ? await supabase.from("time_entries").select("*, auth.users(email)")
-      : await supabase.from("time_entries").select("*").eq("user_id", user.id);
-    if (!error && data) setEntries(data);
+    const { data, error } = await supabase.from("time_entries").select("*");
+    if (!error && data) setEntries(user.email === ADMIN_EMAIL ? data : data.filter((e: TimeEntry) => e.user_id === user.id));
   };
 
   const fetchAllUserSummaries = async () => {
     const { data: allEntries } = await supabase.from("time_entries").select("*");
-    if (!allEntries) return;
+    const { data: users } = await supabase.from("auth.users").select("id,email");
+    if (!allEntries || !users) return;
     const currentMonth = new Date();
     const summaries: { [key: string]: number } = {};
 
@@ -66,13 +64,12 @@ export default function TimeTrackingApp() {
       }
     });
 
-    const { data: users } = await supabase.from("auth.users").select("id,email");
     const summaryList = users
-      ?.filter(u => summaries[u.id])
+      .filter(u => summaries[u.id])
       .map(u => ({
         user: u.email,
         total: `${Math.floor(summaries[u.id] / 60)}h ${summaries[u.id] % 60}min`
-      })) || [];
+      }));
     setAllUserEntries(summaryList);
   };
 
@@ -80,27 +77,24 @@ export default function TimeTrackingApp() {
     setLoadingEntry(true);
     const today = format(new Date(), "yyyy-MM-dd");
     try {
-      const { data: existingEntries, error: selectError } = await supabase
+      const { data: existingEntries } = await supabase
         .from("time_entries")
         .select("*")
         .eq("user_id", user.id)
         .eq("date", today);
 
-      if (selectError) console.error("Fehler beim Laden des Eintrags:", selectError);
-
       if (existingEntries && existingEntries.length > 0) {
         setCurrentEntry(existingEntries[0]);
       } else {
-        const { data: newEntry, error: insertError } = await supabase
+        const { data: newEntry } = await supabase
           .from("time_entries")
           .insert({ user_id: user.id, date: today })
           .select();
 
-        if (insertError) console.error("Fehler beim Erstellen des Eintrags:", insertError);
         if (newEntry && newEntry.length > 0) setCurrentEntry(newEntry[0]);
       }
     } catch (e) {
-      console.error("Unerwarteter Fehler bei fetchOrCreateTodayEntry:", e);
+      console.error("Fehler bei fetchOrCreateTodayEntry:", e);
     } finally {
       setLoadingEntry(false);
     }
@@ -110,7 +104,6 @@ export default function TimeTrackingApp() {
     if (!authenticatedUser || !currentEntry) return;
 
     const updatedEntry = { ...currentEntry, [field]: value };
-    setCurrentEntry(updatedEntry);
 
     if (updatedEntry.startTime && updatedEntry.endTime) {
       updatedEntry.duration = calculateDuration(
@@ -261,6 +254,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
