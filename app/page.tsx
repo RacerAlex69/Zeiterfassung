@@ -1,7 +1,7 @@
 //testzeile
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, RefCallback } from "react";
 import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
 import { createClient, User } from "@supabase/supabase-js";
 
@@ -156,28 +156,35 @@ export default function TimeTrackingApp() {
     return parseInt(parts[1]) * 60 + parseInt(parts[2]);
   };
 
-  const renderTimeInput = (label: string, field: string, value?: string) => (
-    <label>
-      {label}:<br />
-      <input
-        ref={el => inputRefs.current[field] = el}
-        type="time"
-        value={value || ""}
-        onFocus={e => e.target.select()}
-        onChange={e => updateTimeField(field, e.target.value)}
-        style={{
-          display: 'block',
-          marginBottom: '0.5rem',
-          backgroundColor: '#f1f1f1',
-          color: '#000',
-          border: '1px solid #ccc',
-          borderRadius: '6px',
-          padding: '0.4rem',
-          WebkitAppearance: 'none'
-        }}
-      />
-    </label>
-  );
+  const renderTimeInput = (label: string, field: string, value?: string) => {
+    const refCallback: RefCallback<HTMLInputElement> = el => {
+      inputRefs.current[field] = el;
+    };
+
+    return (
+      <label>
+        {label}:<br />
+        <input
+          ref={refCallback}
+          type="time"
+          value={value || ""}
+          min="05:00"
+          onFocus={e => e.target.select()}
+          onChange={e => updateTimeField(field, e.target.value)}
+          style={{
+            display: 'block',
+            marginBottom: '0.5rem',
+            backgroundColor: '#f1f1f1',
+            color: '#000',
+            border: '1px solid #ccc',
+            borderRadius: '6px',
+            padding: '0.4rem',
+            WebkitAppearance: 'none'
+          }}
+        />
+      </label>
+    );
+  };
 
   const currentMonthEntries = entries.filter(e => {
     const entryDate = parse(e.date, "yyyy-MM-dd", new Date());
@@ -264,6 +271,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
