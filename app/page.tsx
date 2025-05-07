@@ -40,14 +40,14 @@ export default function TimeTrackingApp() {
         setAuthenticatedUser(user);
         await fetchEntries(user);
         await fetchOrCreateTodayEntry(user);
-        if (user.email === ADMIN_EMAIL) await fetchAllUserSummaries();
+        if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) await fetchAllUserSummaries();
       }
     });
   }, []);
 
   const fetchEntries = async (user: User) => {
     const { data, error } = await supabase.from("time_entries").select("*");
-    if (!error && data) setEntries(user.email === ADMIN_EMAIL ? data : data.filter((e: TimeEntry) => e.user_id === user.id));
+    if (!error && data) setEntries(user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? data : data.filter((e: TimeEntry) => e.user_id === user.id));
   };
 
   const fetchAllUserSummaries = async () => {
@@ -125,8 +125,8 @@ export default function TimeTrackingApp() {
 
     if (!error && data && data.length > 0) {
       setCurrentEntry(data[0]);
-      fetchEntries(authenticatedUser);
-      if (authenticatedUser.email === ADMIN_EMAIL) fetchAllUserSummaries();
+      await fetchEntries(authenticatedUser);
+      if (authenticatedUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) await fetchAllUserSummaries();
     }
   };
 
@@ -139,7 +139,10 @@ export default function TimeTrackingApp() {
     end: string
   ) => {
     const parseTime = (t: string) => parse(t, "HH:mm", new Date());
-    const total = (parseTime(end).getTime() - parseTime(start).getTime()) / 60000;
+    let startTime = parseTime(start);
+    let endTime = parseTime(end);
+    if (endTime < startTime) endTime.setDate(endTime.getDate() + 1);
+    const total = (endTime.getTime() - startTime.getTime()) / 60000;
     const breakfast = breakStart && breakEnd ? (parseTime(breakEnd).getTime() - parseTime(breakStart).getTime()) / 60000 : 0;
     const lunch = lunchStart && lunchEnd ? (parseTime(lunchEnd).getTime() - parseTime(lunchStart).getTime()) / 60000 : 0;
     return `${Math.floor((total - breakfast - lunch) / 60)}h ${Math.round((total - breakfast - lunch) % 60)}min`;
@@ -162,10 +165,11 @@ export default function TimeTrackingApp() {
           display: 'block',
           marginBottom: '0.5rem',
           backgroundColor: '#f1f1f1',
-          color: '#111',
+          color: '#000',
           border: '1px solid #ccc',
           borderRadius: '6px',
-          padding: '0.4rem'
+          padding: '0.4rem',
+          WebkitAppearance: 'none'
         }}
       />
     </label>
@@ -192,11 +196,12 @@ export default function TimeTrackingApp() {
   const incompleteDays = entries.filter(e => !e.startTime || !e.endTime);
 
   const exportCSV = () => {
+    const BOM = "\uFEFF";
     const csvHeader = "Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
     const csvRows = entries.map(e =>
       `${e.date},${e.startTime || ""},${e.breakStart || ""},${e.breakEnd || ""},${e.lunchStart || ""},${e.lunchEnd || ""},${e.endTime || ""},${e.duration || ""}`
     ).join("\n");
-    const blob = new Blob([csvHeader + csvRows], { type: "text/csv" });
+    const blob = new Blob([BOM + csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `Monatsreport_${format(new Date(), "yyyy_MM")}.csv`;
@@ -222,7 +227,7 @@ export default function TimeTrackingApp() {
       <h3>Arbeitszeit in dieser Woche:</h3>
       <p><strong>{weeklyTotalFormatted}</strong></p>
 
-      {authenticatedUser?.email === ADMIN_EMAIL && (
+      {authenticatedUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (
         <div style={{ marginTop: '2rem' }}>
           <h3>Monatssummen aller Mitarbeiter:</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
