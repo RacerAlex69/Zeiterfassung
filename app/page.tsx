@@ -1,7 +1,7 @@
 //testzeile
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
 import { createClient, User } from "@supabase/supabase-js";
 
@@ -33,6 +33,8 @@ export default function TimeTrackingApp() {
   const [allUserEntries, setAllUserEntries] = useState<{ user: string; total: string }[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [loadingEntry, setLoadingEntry] = useState(false);
+
+  const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -158,8 +160,10 @@ export default function TimeTrackingApp() {
     <label>
       {label}:<br />
       <input
+        ref={el => inputRefs.current[field] = el}
         type="time"
         value={value || ""}
+        onFocus={e => e.target.select()}
         onChange={e => updateTimeField(field, e.target.value)}
         style={{
           display: 'block',
@@ -260,6 +264,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
