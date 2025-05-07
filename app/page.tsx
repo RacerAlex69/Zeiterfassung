@@ -32,6 +32,7 @@ export default function TimeTrackingApp() {
   const [allUserEntries, setAllUserEntries] = useState<{ user: string; total: string }[]>([]);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [loadingEntry, setLoadingEntry] = useState(false);
+  const [localEntry, setLocalEntry] = useState<Partial<TimeEntry>>({});
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -85,13 +86,17 @@ export default function TimeTrackingApp() {
 
       if (existingEntries && existingEntries.length > 0) {
         setCurrentEntry(existingEntries[0]);
+        setLocalEntry(existingEntries[0]);
       } else {
         const { data: newEntry } = await supabase
           .from("time_entries")
           .insert({ user_id: user.id, date: today })
           .select();
 
-        if (newEntry && newEntry.length > 0) setCurrentEntry(newEntry[0]);
+        if (newEntry && newEntry.length > 0) {
+          setCurrentEntry(newEntry[0]);
+          setLocalEntry(newEntry[0]);
+        }
       }
     } catch (e) {
       console.error("Fehler bei fetchOrCreateTodayEntry:", e);
@@ -102,6 +107,9 @@ export default function TimeTrackingApp() {
 
   const updateTimeField = async (field: string, value: string) => {
     if (!authenticatedUser || !currentEntry) return;
+
+    const updatedLocal = { ...localEntry, [field]: value };
+    setLocalEntry(updatedLocal);
 
     const updatedEntry = { ...currentEntry, [field]: value };
 
@@ -124,6 +132,7 @@ export default function TimeTrackingApp() {
 
     if (!error && data && data.length > 0) {
       setCurrentEntry(data[0]);
+      setLocalEntry(data[0]);
       fetchEntries(authenticatedUser);
       if (authenticatedUser.email === ADMIN_EMAIL) fetchAllUserSummaries();
     }
@@ -155,7 +164,7 @@ export default function TimeTrackingApp() {
       {label}:<br />
       <input
         type="time"
-        value={value ?? ""}
+        value={localEntry[field as keyof TimeEntry] ?? ""}
         onChange={e => updateTimeField(field, e.target.value)}
         style={{
           display: 'block',
