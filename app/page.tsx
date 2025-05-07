@@ -155,7 +155,7 @@ export default function TimeTrackingApp() {
       {label}:<br />
       <input
         type="time"
-        value={/^\d{2}:\d{2}$/.test(value ?? "") ? value! : "00:00"}
+        value={value ?? ""}
         onChange={e => updateTimeField(field, e.target.value)}
         style={{
           display: 'block',
