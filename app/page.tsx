@@ -1,7 +1,6 @@
-//testzeile
 "use client";
 
-import { useEffect, useState, useRef, RefCallback } from "react";
+import { useEffect, useState } from "react";
 import { format, parse, isSameMonth, isSameWeek, isValid } from "date-fns";
 import { createClient, User } from "@supabase/supabase-js";
 
@@ -34,22 +33,20 @@ export default function TimeTrackingApp() {
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [loadingEntry, setLoadingEntry] = useState(false);
 
-  const inputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
-
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         setAuthenticatedUser(user);
         await fetchEntries(user);
         await fetchOrCreateTodayEntry(user);
-        if (user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) await fetchAllUserSummaries();
+        if (user.email === ADMIN_EMAIL) await fetchAllUserSummaries();
       }
     });
   }, []);
 
   const fetchEntries = async (user: User) => {
     const { data, error } = await supabase.from("time_entries").select("*");
-    if (!error && data) setEntries(user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? data : data.filter((e: TimeEntry) => e.user_id === user.id));
+    if (!error && data) setEntries(user.email === ADMIN_EMAIL ? data : data.filter((e: TimeEntry) => e.user_id === user.id));
   };
 
   const fetchAllUserSummaries = async () => {
@@ -127,8 +124,8 @@ export default function TimeTrackingApp() {
 
     if (!error && data && data.length > 0) {
       setCurrentEntry(data[0]);
-      await fetchEntries(authenticatedUser);
-      if (authenticatedUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) await fetchAllUserSummaries();
+      fetchEntries(authenticatedUser);
+      if (authenticatedUser.email === ADMIN_EMAIL) fetchAllUserSummaries();
     }
   };
 
@@ -141,10 +138,7 @@ export default function TimeTrackingApp() {
     end: string
   ) => {
     const parseTime = (t: string) => parse(t, "HH:mm", new Date());
-    let startTime = parseTime(start);
-    let endTime = parseTime(end);
-    if (endTime < startTime) endTime.setDate(endTime.getDate() + 1);
-    const total = (endTime.getTime() - startTime.getTime()) / 60000;
+    const total = (parseTime(end).getTime() - parseTime(start).getTime()) / 60000;
     const breakfast = breakStart && breakEnd ? (parseTime(breakEnd).getTime() - parseTime(breakStart).getTime()) / 60000 : 0;
     const lunch = lunchStart && lunchEnd ? (parseTime(lunchEnd).getTime() - parseTime(lunchStart).getTime()) / 60000 : 0;
     return `${Math.floor((total - breakfast - lunch) / 60)}h ${Math.round((total - breakfast - lunch) % 60)}min`;
@@ -156,35 +150,25 @@ export default function TimeTrackingApp() {
     return parseInt(parts[1]) * 60 + parseInt(parts[2]);
   };
 
-  const renderTimeInput = (label: string, field: string, value?: string) => {
-    const refCallback: RefCallback<HTMLInputElement> = el => {
-      inputRefs.current[field] = el;
-    };
-
-    return (
-      <label>
-        {label}:<br />
-        <input
-          ref={refCallback}
-          type="time"
-          value={value || ""}
-          min="05:00"
-          onFocus={e => e.target.select()}
-          onChange={e => updateTimeField(field, e.target.value)}
-          style={{
-            display: 'block',
-            marginBottom: '0.5rem',
-            backgroundColor: '#f1f1f1',
-            color: '#000',
-            border: '1px solid #ccc',
-            borderRadius: '6px',
-            padding: '0.4rem',
-            WebkitAppearance: 'none'
-          }}
-        />
-      </label>
-    );
-  };
+  const renderTimeInput = (label: string, field: string, value?: string) => (
+    <label>
+      {label}:<br />
+      <input
+        type="time"
+        value={/^\d{2}:\d{2}$/.test(value ?? "") ? value! : "00:00"}
+        onChange={e => updateTimeField(field, e.target.value)}
+        style={{
+          display: 'block',
+          marginBottom: '0.5rem',
+          backgroundColor: '#f1f1f1',
+          color: '#111',
+          border: '1px solid #ccc',
+          borderRadius: '6px',
+          padding: '0.4rem'
+        }}
+      />
+    </label>
+  );
 
   const currentMonthEntries = entries.filter(e => {
     const entryDate = parse(e.date, "yyyy-MM-dd", new Date());
@@ -207,12 +191,11 @@ export default function TimeTrackingApp() {
   const incompleteDays = entries.filter(e => !e.startTime || !e.endTime);
 
   const exportCSV = () => {
-    const BOM = "\uFEFF";
     const csvHeader = "Datum,Startzeit,Frühstücksbeginn,Frühstücksende,Mittagsbeginn,Mittagsende,Endzeit,Arbeitszeit\n";
     const csvRows = entries.map(e =>
       `${e.date},${e.startTime || ""},${e.breakStart || ""},${e.breakEnd || ""},${e.lunchStart || ""},${e.lunchEnd || ""},${e.endTime || ""},${e.duration || ""}`
     ).join("\n");
-    const blob = new Blob([BOM + csvHeader + csvRows], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvHeader + csvRows], { type: "text/csv" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `Monatsreport_${format(new Date(), "yyyy_MM")}.csv`;
@@ -238,7 +221,7 @@ export default function TimeTrackingApp() {
       <h3>Arbeitszeit in dieser Woche:</h3>
       <p><strong>{weeklyTotalFormatted}</strong></p>
 
-      {authenticatedUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (
+      {authenticatedUser?.email === ADMIN_EMAIL && (
         <div style={{ marginTop: '2rem' }}>
           <h3>Monatssummen aller Mitarbeiter:</h3>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -271,6 +254,7 @@ export default function TimeTrackingApp() {
     </div>
   );
 }
+
 
 
 
